@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>鏡片產品開發多專案追蹤系統</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=role-card-workbench-20260624">
+  <!-- SheetJS local copy fallback to CDN if offline -->
+  <script src="libs/xlsx.full.min.js"></script>
+  <script>
+    if (typeof XLSX === 'undefined') {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"><\/script>');
+    }
+  </script>
+</head>
+<body>
+
+  <!-- 1. 登入遮罩頁面 (Login Overlay) -->
+  <div id="login-overlay" class="login-overlay">
+    <div class="login-card">
+      <div class="login-header">
+        <div class="logo">
+          <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+          </svg>
+          <h2>LENS PDM</h2>
+        </div>
+        <p class="subtitle">產品開發與專案追蹤系統</p>
+      </div>
+      <form id="login-form" onsubmit="event.preventDefault(); handleLogin();">
+        <div class="form-group">
+          <label for="username">使用者帳號</label>
+          <input type="text" id="username" required placeholder="請輸入帳號" autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label for="password">密碼</label>
+          <input type="password" id="password" required placeholder="請輸入密碼" autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn btn-primary login-btn">登入系統</button>
+        <div id="login-error" class="login-error">帳號或密碼錯誤！</div>
+      </form>
+      <div class="login-helper">
+        <p>測試帳密參考（密碼皆為 123）：</p>
+        <ul>
+          <li><strong>admin</strong> (系統管理員)</li>
+          <li><strong>pm_user</strong> (產品 PM - 曼玉)</li>
+          <li><strong>rd_user</strong> (研發人員 - 世偉)</li>
+          <li><strong>vp_user</strong> (審核主管 - 副總經理)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. 主應用配置 (Main Application Container) -->
+  <div id="app-container" class="app-container hidden">
+    <!-- 側邊導覽列 -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+        </svg>
+        <span class="brand-text">LENS PDM</span>
+      </div>
+
+      <nav class="sidebar-menu">
+        <a href="#" class="menu-item active" data-tab="vp-milestones" id="nav-vp-milestones">
+          <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+            <line x1="4" y1="22" x2="4" y2="15"></line>
+          </svg>
+          我的工作台
+        </a>
+        <a href="#" class="menu-item" data-tab="gantt-chart" id="nav-gantt-chart">
+          <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="16" y1="2" x2="16" y2="6"></line>
+            <line x1="8" y1="2" x2="8" y2="6"></line>
+            <line x1="3" y1="10" x2="21" y2="10"></line>
+          </svg>
+          專案甘特圖
+        </a>
+        <a href="#" class="menu-item" data-tab="project-master" id="nav-project-master">
+          <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <line x1="9" y1="9" x2="15" y2="9"></line>
+            <line x1="9" y1="13" x2="15" y2="13"></line>
+            <line x1="9" y1="17" x2="13" y2="17"></line>
+          </svg>
+          專案主檔
+        </a>
+        <a href="#" class="menu-item" data-tab="version-history" id="nav-version-history">
+          <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 8v4l3 3"></path>
+            <circle cx="12" cy="12" r="9"></circle>
+          </svg>
+          版本履歷
+        </a>
+        <a href="#" class="menu-item" data-tab="action-items" id="nav-action-items">
+          <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="9 11 12 14 22 4"></polyline>
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+          </svg>
+          行動項目
+        </a>
+        <a href="#" class="menu-item" data-tab="risks-issues" id="nav-risks-issues">
+          <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+            <line x1="12" y1="9" x2="12" y2="13"></line>
+            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+          </svg>
+          風險與待確認
+        </a>
+        <a href="#" class="menu-item hidden" data-tab="admin-settings" id="nav-admin-settings">
+          <svg class="menu-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+          系統管理員
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="db-status">
+          <span class="status-indicator online" id="server-status-dot"></span>
+          <span class="status-text" id="server-status-text">伺服器連線中</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- 右側內容區 -->
+    <main class="main-content">
+      <!-- 頂部導覽列 -->
+      <header class="header">
+        <div class="header-left">
+          <div class="role-badge-container">
+            目前視角:
+            <select id="role-perspective-select" class="role-select" onchange="changePerspective(this.value)">
+              <option value="VP">副總/主管 (簽核與里程碑)</option>
+              <option value="PM">產品 PM (甘特圖與管理)</option>
+              <option value="RD">研發 (RD 資料登錄與試戴報告)</option>
+              <option value="Admin">系統管理員 (全權限)</option>
+            </select>
+          </div>
+        </div>
+        <div class="header-right">
+          <div class="user-info">
+            <span class="user-name" id="user-display-name">載入中...</span>
+            <span class="user-dept" id="user-display-dept">載入中...</span>
+          </div>
+          <button class="btn btn-outline btn-sm logout-btn" onclick="handleLogout()">登出</button>
+        </div>
+      </header>
+
+      <!-- 主要內容切換區 -->
+      <div class="content-body">
+        
+        <!-- 分頁 1: 我的工作台 -->
+        <section id="tab-vp-milestones" class="tab-pane active">
+          <div class="section-header">
+            <div>
+              <h1 class="page-title">我的工作台</h1>
+              <p class="page-desc">一進系統先看「我現在要處理什麼」，再往下看專案甘特圖、個別專案進度與版本紀錄。</p>
+            </div>
+            <div class="header-actions">
+              <button class="btn btn-outline" onclick="exportDataJSON()" id="btn-export-json">匯出資料庫 (JSON)</button>
+            </div>
+          </div>
+
+          <div class="workbench-hero card">
+            <div>
+              <span class="workbench-eyebrow" id="workbench-role-label">今日工作重點</span>
+              <h2 id="workbench-title">請先處理需要你確認的專案</h2>
+              <p id="workbench-subtitle">系統會依角色整理任務卡，點卡片即可進入正確專案或功能。</p>
+            </div>
+            <div class="workbench-hero-actions">
+              <button class="btn btn-primary" onclick="switchTabFromWorkbench('project-master')">查看專案進度</button>
+              <button class="btn btn-outline" onclick="switchTabFromWorkbench('gantt-chart')">查看甘特圖</button>
+            </div>
+          </div>
+
+          <!-- KPI 統計卡片 -->
+          <div class="kpi-grid workbench-kpi-grid">
+            <div class="kpi-card">
+              <div class="kpi-title">進行中專案</div>
+              <div class="kpi-value" id="kpi-total-projects">0</div>
+            </div>
+            <div class="kpi-card status-red">
+              <div class="kpi-title">紅燈／NG 專案</div>
+              <div class="kpi-value" id="kpi-red-projects">0</div>
+            </div>
+            <div class="kpi-card status-yellow">
+              <div class="kpi-title">黃燈追蹤中</div>
+              <div class="kpi-value" id="kpi-yellow-projects">0</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-title">未完成任務</div>
+              <div class="kpi-value" id="kpi-pending-actions">0</div>
+            </div>
+            <div class="kpi-card status-red">
+              <div class="kpi-title">高優先未完</div>
+              <div class="kpi-value" id="kpi-high-actions">0</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-title">風險／待確認</div>
+              <div class="kpi-value" id="kpi-open-risks">0</div>
+            </div>
+          </div>
+
+          <div class="role-task-grid mt-20" id="role-task-cards">
+            <!-- 動態渲染角色任務卡 -->
+          </div>
+
+          <div class="workbench-secondary-grid mt-20">
+            <div class="card">
+              <div class="card-header">
+                <h3 class="card-title">卡關與需要判定的專案</h3>
+              </div>
+              <div class="card-body">
+                <div id="priority-project-cards" class="priority-project-list">
+                  <!-- 動態渲染 -->
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <h3 class="card-title">部門確認清單</h3>
+              </div>
+              <div class="card-body">
+                <div id="department-checklist" class="department-checklist">
+                  <!-- 動態渲染 -->
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 專案快速進度 -->
+          <div class="card mt-20">
+            <div class="card-header">
+              <h3 class="card-title">專案快速進度</h3>
+              <button class="btn btn-outline btn-sm" onclick="switchTabFromWorkbench('project-master')">看完整專案主檔</button>
+            </div>
+            <div class="table-container">
+              <table class="milestone-table workbench-progress-table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">專案</th>
+                    <th style="width: 10%;">燈號</th>
+                    <th style="width: 22%;">目前階段</th>
+                    <th style="width: 48%;">接下來要做什麼</th>
+                  </tr>
+                </thead>
+                <tbody id="milestone-table-body">
+                  <!-- 動態渲染 -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 分頁 2: 專案甘特圖 -->
+        <section id="tab-gantt-chart" class="tab-pane">
+          <div class="section-header">
+            <div>
+              <h1 class="page-title">產品開發甘特圖</h1>
+              <p class="page-desc">呈現 2025/11 至 2026/06 的開發排程，色塊代表版本進度，並提供時程衝突警示。</p>
+            </div>
+            <div class="header-actions">
+              <div class="legend-container">
+                <span class="legend-item"><span class="legend-color color-green"></span>量產中/OK</span>
+                <span class="legend-item"><span class="legend-color color-orange"></span>開發中</span>
+                <span class="legend-item"><span class="legend-color color-blue"></span>等待測試/全光度</span>
+                <span class="legend-item"><span class="legend-color color-red"></span>NG/需重做</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 甘特圖容器 -->
+          <div class="card">
+            <div class="gantt-wrapper">
+              <table class="gantt-table">
+                <thead id="gantt-header">
+                  <!-- 動態渲染 -->
+                </thead>
+                <tbody id="gantt-body">
+                  <!-- 動態渲染 -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 分頁 3: 專案主檔 -->
+        <section id="tab-project-master" class="tab-pane">
+          <div class="section-header">
+            <div>
+              <h1 class="page-title">專案主檔</h1>
+              <p class="page-desc">各產品規格的單一追蹤專案。詳細之版本迭代與修改細節請於「版本履歷」管理。</p>
+            </div>
+            <div class="header-actions">
+              <button class="btn btn-primary" onclick="showAddProjectModal()" id="btn-add-project-main">新增專案</button>
+            </div>
+          </div>
+
+          <div id="project-list-view">
+            <!-- 搜尋與過濾 -->
+            <div class="filter-bar card">
+              <div class="form-group row-search">
+                <input type="text" id="project-search" placeholder="搜尋專案ID、規格或負責人..." oninput="renderProjectMaster()">
+              </div>
+              <div class="filter-group">
+                <select id="project-filter-type" onchange="renderProjectMaster()">
+                  <option value="">所有規格類型</option>
+                  <option value="SiH">矽水膠 (SiH)</option>
+                  <option value="Conventional">常規水膠 (Conventional)</option>
+                </select>
+                <select id="project-filter-status" onchange="renderProjectMaster()">
+                  <option value="">所有專案燈號</option>
+                  <option value="紅">紅燈 (異常阻礙)</option>
+                  <option value="黃">黃燈 (進度追蹤中)</option>
+                  <option value="綠">綠燈 (正常)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 專案主表格 -->
+            <div class="card mt-20">
+              <div class="table-container">
+                <table class="data-table project-click-table">
+                  <thead>
+                    <tr>
+                      <th>專案</th>
+                      <th>目前進度</th>
+                      <th>版本／迭代</th>
+                      <th>燈號</th>
+                      <th>Owner</th>
+                      <th>下一期限</th>
+                      <th>目前卡點／下一步</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="project-table-body">
+                    <!-- 動態渲染 -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- 點擊專案後的進度中心 -->
+          <div id="project-detail-view" class="hidden">
+            <div class="project-detail-toolbar">
+              <button class="btn btn-outline" onclick="closeProjectDetail()">← 返回專案清單</button>
+              <div class="project-detail-actions">
+                <button class="btn btn-outline" id="btn-detail-version" onclick="openVersionForCurrentProject()">登錄新版本</button>
+                <button class="btn btn-primary" id="btn-detail-edit">編輯專案</button>
+              </div>
+            </div>
+
+            <div id="project-detail-header" class="project-detail-header card"></div>
+
+            <div class="project-detail-layout">
+              <div class="process-workspace card">
+                <div class="process-heading">
+                  <div>
+                    <h2>產品開發流程</h2>
+                    <p>點擊任一階段，查看該階段的版本、測試證據與工作紀錄。</p>
+                  </div>
+                  <div class="process-legend">
+                    <span><i class="process-dot done"></i>已完成</span>
+                    <span><i class="process-dot current"></i>進行中</span>
+                    <span><i class="process-dot blocked"></i>NG／卡關</span>
+                    <span><i class="process-dot pending"></i>未開始</span>
+                  </div>
+                </div>
+                <div id="project-process-flow" class="project-process-flow"></div>
+              </div>
+
+              <aside id="project-stage-inspector" class="stage-inspector card"></aside>
+            </div>
+
+            <div class="project-history-grid">
+              <div class="card detail-section-card">
+                <div class="detail-section-heading">
+                  <h2>版本與測試歷史</h2>
+                  <span id="detail-version-count" class="badge badge-blue"></span>
+                </div>
+                <div id="project-version-timeline" class="version-timeline"></div>
+              </div>
+              <div class="card detail-section-card">
+                <div class="detail-section-heading">
+                  <h2>目前執行重點</h2>
+                </div>
+                <div id="project-execution-focus"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 分頁 4: 版本履歷 -->
+        <section id="tab-version-history" class="tab-pane">
+          <div class="section-header">
+            <div>
+              <h1 class="page-title">版本履歷與測試證據</h1>
+              <p class="page-desc">記錄每次修改的實驗數據、舒適度評分與氣孔率。提供試戴報告 Excel 自動解析與匯入功能。</p>
+            </div>
+            <div class="header-actions">
+              <button class="btn btn-outline" onclick="showImportModal()" id="btn-import-report-main">匯入試戴報告</button>
+              <button class="btn btn-primary ml-10" onclick="showAddVersionModal()" id="btn-add-version-main">手動登錄新版本</button>
+            </div>
+          </div>
+
+          <!-- 篩選列 -->
+          <div class="filter-bar card">
+            <div class="filter-group">
+              <select id="version-filter-project" onchange="renderVersionHistory()">
+                <option value="">所有專案</option>
+                <!-- 動態載入專案 ID -->
+              </select>
+              <select id="version-filter-production" onchange="renderVersionHistory()">
+                <option value="">所有量產狀態</option>
+                <option value="是">可量產</option>
+                <option value="條件式可用">條件式量產</option>
+                <option value="否">不可量產</option>
+                <option value="待確認">待確認</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 版本履歷表格 -->
+          <div class="card mt-20">
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>專案 ID</th>
+                    <th>版本</th>
+                    <th>變更類別</th>
+                    <th>主要變更說明</th>
+                    <th>測試類型</th>
+                    <th>樣本數</th>
+                    <th>氣孔率</th>
+                    <th>舒適/定位度</th>
+                    <th>主要缺陷反饋</th>
+                    <th>結論</th>
+                    <th>下一步</th>
+                    <th>Owner</th>
+                    <th>可否量產</th>
+                    <th>來源/備註</th>
+                  </tr>
+                </thead>
+                <tbody id="version-table-body">
+                  <!-- 動態渲染 -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 分頁 5: 行動項目 -->
+        <section id="tab-action-items" class="tab-pane">
+          <div class="section-header">
+            <div>
+              <h1 class="page-title">協作行動項目 (Action Items)</h1>
+              <p class="page-desc">追蹤跨部門的具體開發任務、負責人與到期狀態。</p>
+            </div>
+            <div class="header-actions">
+              <button class="btn btn-primary" onclick="showAddActionModal()" id="btn-add-action-main">新增行動項目</button>
+            </div>
+          </div>
+
+          <!-- 看板佈局 -->
+          <div class="kanban-board">
+            <!-- 欄位 1: 未開始 -->
+            <div class="kanban-column" id="kanban-col-todo">
+              <div class="kanban-column-header">
+                <h3>未開始</h3>
+                <span class="count-badge" id="count-todo">0</span>
+              </div>
+              <div class="kanban-cards" id="cards-todo">
+                <!-- 動態卡片 -->
+              </div>
+            </div>
+
+            <!-- 欄位 2: 進行中 -->
+            <div class="kanban-column" id="kanban-col-inprogress">
+              <div class="kanban-column-header">
+                <h3>進行中</h3>
+                <span class="count-badge" id="count-inprogress">0</span>
+              </div>
+              <div class="kanban-cards" id="cards-inprogress">
+                <!-- 動態卡片 -->
+              </div>
+            </div>
+
+            <!-- 欄位 3: 已完成 -->
+            <div class="kanban-column" id="kanban-col-completed">
+              <div class="kanban-column-header">
+                <h3>已完成</h3>
+                <span class="count-badge" id="count-completed">0</span>
+              </div>
+              <div class="kanban-cards" id="cards-completed">
+                <!-- 動態卡片 -->
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 分頁 6: 風險與待確認 -->
+        <section id="tab-risks-issues" class="tab-pane">
+          <div class="section-header">
+            <div>
+              <h1 class="page-title">風險與待確認事項</h1>
+              <p class="page-desc">管理潛在風險 (Risk) 及已發生的議題 (Issue)，計算影響分數並記錄因應對策。</p>
+            </div>
+            <div class="header-actions">
+              <button class="btn btn-primary" onclick="showAddRiskModal()" id="btn-add-risk-main">新增風險項目</button>
+            </div>
+          </div>
+
+          <!-- 風險矩陣與表格 -->
+          <div class="card">
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>編號</th>
+                    <th>類型</th>
+                    <th>專案 ID</th>
+                    <th>風險／議題描述</th>
+                    <th>機率 (1-5)</th>
+                    <th>影響 (1-5)</th>
+                    <th>分數</th>
+                    <th>燈號</th>
+                    <th>因應／決策需求</th>
+                    <th>負責人</th>
+                    <th>解決期限</th>
+                    <th>目前狀態</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="risk-table-body">
+                  <!-- 動態渲染 -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 分頁 7: 系統管理員面板 -->
+        <section id="tab-admin-settings" class="tab-pane">
+          <div class="section-header">
+            <div>
+              <h1 class="page-title">系統管理控制台</h1>
+              <p class="page-desc">IT 與系統管理員專屬。在此設定同仁的帳號權限與角色組。</p>
+            </div>
+            <div class="header-actions">
+              <button class="btn btn-primary" onclick="showAddUserModal()">新增使用者帳號</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3 class="card-title">系統帳號清單與權限設定</h3>
+            </div>
+            <div class="table-container">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>姓名</th>
+                    <th>登入帳號</th>
+                    <th>隸屬部門</th>
+                    <th>系統角色 (Role)</th>
+                    <th>擁有權限簡述</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="user-table-body">
+                  <!-- 動態渲染 -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- ==================== MODALS / 表單對話框 ==================== -->
+
+  <!-- Modal 1: 新增/編輯專案 -->
+  <div id="modal-project" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title" id="project-modal-title">新增開發專案</h3>
+        <button class="modal-close" onclick="closeModal('modal-project')">&times;</button>
+      </div>
+      <form id="project-form" onsubmit="event.preventDefault(); submitProjectForm();">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="project-id">專案 ID *</label>
+            <input type="text" id="project-id" placeholder="例如: SIH-142-NEW" required>
+          </div>
+          <div class="form-group">
+            <label for="project-name">產品規格名稱 *</label>
+            <input type="text" id="project-name" placeholder="例如: 14.2 矽水膠" required>
+          </div>
+          <div class="form-group">
+            <label for="project-type">規格類型 *</label>
+            <select id="project-type" required>
+              <option value="SiH">矽水膠 (SiH)</option>
+              <option value="Conventional">常規水膠 (Conventional)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="project-owner">主要負責人 (PM) *</label>
+            <input type="text" id="project-owner" placeholder="例如: 曼玉" required>
+          </div>
+          <div class="form-group">
+            <label for="project-collaborators">協作單位人員</label>
+            <input type="text" id="project-collaborators" placeholder="例如: 世偉、齊政、鍾民">
+          </div>
+          <div class="form-group">
+            <label for="project-priority">優先順序 (數字) *</label>
+            <input type="number" id="project-priority" min="1" max="99" required placeholder="例如: 1">
+          </div>
+          <div class="form-group">
+            <label for="project-status">專案狀態燈號 *</label>
+            <select id="project-status" required>
+              <option value="黃" style="background-color: #FEF3C7; color: #D97706;">黃燈 (開發中/品質待確認)</option>
+              <option value="綠" style="background-color: #D1FAE5; color: #059669;">綠燈 (正常無議題)</option>
+              <option value="紅" style="background-color: #FEE2E2; color: #DC2626;">紅燈 (關鍵阻礙/延誤)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="project-gate">目前開發階段 *</label>
+            <select id="project-gate" required>
+              <option value="1">1. 需求與規格確認</option>
+              <option value="2">2. 模仁設計（平光）</option>
+              <option value="3">3. 平光 PP 模</option>
+              <option value="4">4. 平光設計確認</option>
+              <option value="5">5. 平光臨床試戴與測試</option>
+              <option value="6">6. 模仁設計（全光度）</option>
+              <option value="7">7. 全光度 PP 模</option>
+              <option value="8">8. 全光度設計確認</option>
+              <option value="9">9. 全光度臨床試戴與測試</option>
+              <option value="10">10. 量產</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="project-deadline">下一期限日</label>
+            <input type="date" id="project-deadline">
+          </div>
+          <div class="form-group">
+            <label for="project-status-desc">量產/開發狀態簡述</label>
+            <input type="text" id="project-status-desc" placeholder="例如: 尚未量產">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="project-bottleneck">目前卡點 (主要卡在哪裡、為什麼卡住)</label>
+          <textarea id="project-bottleneck" rows="2" placeholder="詳細描述阻礙點..."></textarea>
+        </div>
+        <div class="form-group">
+          <label for="project-next-step">下一步規劃 (任務指派與Owner)</label>
+          <textarea id="project-next-step" rows="2" placeholder="詳細描述下一步任務..."></textarea>
+        </div>
+        <div class="form-buttons">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modal-project')">取消</button>
+          <button type="submit" class="btn btn-primary">儲存專案</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 2: 新增版本履歷 -->
+  <div id="modal-version" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">手動登錄新版本進度</h3>
+        <button class="modal-close" onclick="closeModal('modal-version')">&times;</button>
+      </div>
+      <form id="version-form" onsubmit="event.preventDefault(); submitVersionForm();">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="ver-project-id">關聯專案 *</label>
+            <select id="ver-project-id" required>
+              <!-- 動態載入專案 ID -->
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="ver-name">版本代號 *</label>
+            <input type="text" id="ver-name" placeholder="例如: V18.2" required>
+          </div>
+          <div class="form-group">
+            <label for="ver-category">變更類別 *</label>
+            <select id="ver-category" required>
+              <option value="候選版">候選版 (Candidate)</option>
+              <option value="平光樣片">平光樣片</option>
+              <option value="試戴版">試戴版</option>
+              <option value="量產版">量產版</option>
+              <option value="競品／客戶版">競品／客戶版</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="ver-test-type">測試/實驗類型</label>
+            <input type="text" id="ver-test-type" placeholder="例如: 臨床試戴 / 製程測試">
+          </div>
+          <div class="form-group">
+            <label for="ver-sample-size">測試樣本數 (受試人數/片數)</label>
+            <input type="number" id="ver-sample-size" min="0" placeholder="例如: 10">
+          </div>
+          <div class="form-group">
+            <label for="ver-porosity">氣孔率測量值 (小數/百分比)</label>
+            <input type="text" id="ver-porosity" placeholder="例如: 0.045 或 4.5%">
+          </div>
+          <div class="form-group">
+            <label for="ver-comfort">舒適度評分 / 定位結果</label>
+            <input type="text" id="ver-comfort" placeholder="例如: 4.2/5 或 良好">
+          </div>
+          <div class="form-group">
+            <label for="ver-owner">報告/測試負責人 *</label>
+            <input type="text" id="ver-owner" placeholder="例如: 齊政" required>
+          </div>
+          <div class="form-group">
+            <label for="ver-date">測試日期</label>
+            <input type="date" id="ver-date">
+          </div>
+          <div class="form-group">
+            <label for="ver-production">可量產性判定 *</label>
+            <select id="ver-production" required>
+              <option value="待確認">待確認</option>
+              <option value="否">否 (NG)</option>
+              <option value="是">是 (OK)</option>
+              <option value="條件式可用">條件式可用</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="ver-change">主要變更說明 *</label>
+          <textarea id="ver-change" rows="2" placeholder="說明相較前一版本的結構或製程變更..." required></textarea>
+        </div>
+        <div class="form-group">
+          <label for="ver-defect">主要缺陷與異常回饋</label>
+          <textarea id="ver-defect" rows="2" placeholder="如: 輕微漏白、印痕、掉色等..."></textarea>
+        </div>
+        <div class="form-group">
+          <label for="ver-conclusion">測試結論</label>
+          <textarea id="ver-conclusion" rows="2" placeholder="總結此版本的測試表現..."></textarea>
+        </div>
+        <div class="form-group">
+          <label for="ver-next-step">下一步任務</label>
+          <input type="text" id="ver-next-step" placeholder="例如: 車製全光度模仁">
+        </div>
+        <div class="form-group">
+          <label for="ver-source">資料來源 / 備註</label>
+          <input type="text" id="ver-source" placeholder="例如: 臨床世代結果">
+        </div>
+        <div class="form-buttons">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modal-version')">取消</button>
+          <button type="submit" class="btn btn-primary">登錄版本</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 3: 匯入試戴報告與分析 -->
+  <div id="modal-import" class="modal-overlay">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <h3 class="modal-title">自動匯入試戴報告問卷</h3>
+        <button class="modal-close" onclick="closeModal('modal-import')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="desc">請拖放或選擇受試者的試戴報告 Excel / CSV 檔案。系統會自動解析統計樣本數、滿意度分數、缺陷文字分佈，並給出 Go/NG 的決策建議。</p>
+        
+        <div class="import-grid">
+          <!-- 左側: 上傳區與範本 -->
+          <div class="import-upload-zone">
+            <div id="drop-zone" class="drop-zone" onclick="document.getElementById('import-file-input').click();">
+              <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+              <p class="drop-text">拖曳試戴報告 Excel/CSV 檔案至此，或<span>點擊瀏覽上傳</span></p>
+              <input type="file" id="import-file-input" class="hidden" accept=".xlsx, .xls, .csv" onchange="handleFileUpload(event)">
+            </div>
+            <div class="template-download">
+              <p>需要範本？我們為您準備了標準的試戴問卷格式。</p>
+              <a href="樣本_試戴問卷結果.csv" download class="btn btn-outline btn-sm">下載試戴問卷問卷範本 (.CSV)</a>
+            </div>
+          </div>
+
+          <!-- 右側: 即時解析與分析看板 -->
+          <div class="import-analysis-result hidden" id="analysis-result-panel">
+            <h4>試戴資料分析看板</h4>
+            <div class="analysis-stats">
+              <div class="stat-card">
+                <div class="stat-num" id="stat-sample-size">0</div>
+                <div class="stat-label">受試樣本數</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-num" id="stat-avg-comfort">0.0</div>
+                <div class="stat-label">平均舒適度 (1-5)</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-num" id="stat-avg-centration">0%</div>
+                <div class="stat-label">定位合格率</div>
+              </div>
+            </div>
+
+            <div class="defect-distribution mt-10">
+              <h5>回饋缺陷字詞佔比：</h5>
+              <div id="defect-tags-container" class="defect-tags-container">
+                <!-- 動態標籤 -->
+              </div>
+            </div>
+
+            <div class="ai-recommendation mt-10" id="ai-rec-box">
+              <h5>品保 Gate 決策建議：</h5>
+              <div class="rec-badge" id="rec-badge-type">建議通過 (Go)</div>
+              <p class="rec-reason" id="rec-badge-reason">舒適度達 4.0 以上，且定位滿意度 > 90%，且未檢出掉色等嚴重危害安全性缺陷。</p>
+            </div>
+
+            <!-- 配置關聯專案 -->
+            <div class="association-settings mt-15">
+              <h5>將此分析結果儲存至系統：</h5>
+              <div class="form-grid-mini">
+                <div class="form-group">
+                  <label for="import-assoc-project">專案 ID</label>
+                  <select id="import-assoc-project" class="form-control-sm">
+                    <!-- 動態載入專案 ID -->
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="import-assoc-version">版本號</label>
+                  <input type="text" id="import-assoc-version" placeholder="例如: V18.2" class="form-control-sm">
+                </div>
+              </div>
+              <button class="btn btn-primary btn-sm mt-10 w-full" onclick="saveImportedReport()">儲存並關聯至版本履歷</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 4: 新增行動項目 -->
+  <div id="modal-action" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">指派跨部門行動任務</h3>
+        <button class="modal-close" onclick="closeModal('modal-action')">&times;</button>
+      </div>
+      <form id="action-form" onsubmit="event.preventDefault(); submitActionForm();">
+        <div class="form-group">
+          <label for="act-project-id">關聯專案 ID *</label>
+          <select id="act-project-id" required>
+            <!-- 動態載入 -->
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="act-title">任務標題 *</label>
+          <input type="text" id="act-title" placeholder="例如: 研發對齊氣孔率標準" required>
+        </div>
+        <div class="form-group">
+          <label for="act-desc">詳細任務說明</label>
+          <textarea id="act-desc" rows="3" placeholder="詳細描述需要解決的工作內容..."></textarea>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="act-owner">主責人 (Owner) *</label>
+            <input type="text" id="act-owner" placeholder="例如: 世偉" required>
+          </div>
+          <div class="form-group">
+            <label for="act-coowners">協作單位人員</label>
+            <input type="text" id="act-coowners" placeholder="例如: 鍾民、品保">
+          </div>
+          <div class="form-group">
+            <label for="act-priority">優先級 *</label>
+            <select id="act-priority" required>
+              <option value="中">中</option>
+              <option value="高">高 (最優先)</option>
+              <option value="低">低</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="act-deadline">解決期限日 *</label>
+            <input type="date" id="act-deadline" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="act-notes">備註 / 依據</label>
+          <input type="text" id="act-notes" placeholder="例如: 會議紀錄決議事項">
+        </div>
+        <div class="form-buttons">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modal-action')">取消</button>
+          <button type="submit" class="btn btn-primary">指派任務</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 5: 新增風險項目 -->
+  <div id="modal-risk" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">登錄風險或議題項目</h3>
+        <button class="modal-close" onclick="closeModal('modal-risk')">&times;</button>
+      </div>
+      <form id="risk-form" onsubmit="event.preventDefault(); submitRiskForm();">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="risk-type">項目類型 *</label>
+            <select id="risk-type" required>
+              <option value="Risk">Risk (潛在風險 - 尚未發生)</option>
+              <option value="Issue">Issue (具體議題 - 已發生且受阻)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="risk-project-id">關聯專案 ID *</label>
+            <select id="risk-project-id" required>
+              <!-- 動態載入 -->
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="risk-title">風險／議題標題 *</label>
+          <input type="text" id="risk-title" placeholder="例如: 氣孔率量測來源不一致" required>
+        </div>
+        <div class="form-group">
+          <label for="risk-desc">具體現象描述（證據/影響） *</label>
+          <textarea id="risk-desc" rows="2" placeholder="說明該問題會對時程或品質造成什麼影響..." required></textarea>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="risk-prob">發生機率 (1-5) *</label>
+            <select id="risk-prob" required onchange="calculateRiskScore()">
+              <option value="1">1 (極低)</option>
+              <option value="2">2 (低)</option>
+              <option value="3">3 (中)</option>
+              <option value="4">4 (高)</option>
+              <option value="5">5 (極高)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="risk-impact">影響嚴重度 (1-5) *</label>
+            <select id="risk-impact" required onchange="calculateRiskScore()">
+              <option value="1">1 (極低)</option>
+              <option value="2">2 (低)</option>
+              <option value="3">3 (中)</option>
+              <option value="4">4 (高)</option>
+              <option value="5">5 (極高)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>風險乘積得分</label>
+            <input type="text" id="risk-score-display" value="1" disabled class="form-control-disabled">
+          </div>
+          <div class="form-group">
+            <label for="risk-owner">責任追蹤人 (Owner) *</label>
+            <input type="text" id="risk-owner" placeholder="例如: 宣義" required>
+          </div>
+          <div class="form-group">
+            <label for="risk-deadline">因應解決期限日</label>
+            <input type="date" id="risk-deadline">
+          </div>
+          <div class="form-group">
+            <label for="risk-status">處理狀態 *</label>
+            <select id="risk-status" required>
+              <option value="待確認">待確認</option>
+              <option value="待規劃">待規劃</option>
+              <option value="處理中">處理中</option>
+              <option value="監控中">監控中</option>
+              <option value="已關閉">已關閉</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="risk-mitigation">因應措施／決策需求說明</label>
+          <textarea id="risk-mitigation" rows="2" placeholder="詳細描述緩解手段或需要主管拍板的需求..."></textarea>
+        </div>
+        <div class="form-buttons">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modal-risk')">取消</button>
+          <button type="submit" class="btn btn-primary">登錄項目</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 6: 新增使用者 (管理員) -->
+  <div id="modal-user" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">新增使用者帳號</h3>
+        <button class="modal-close" onclick="closeModal('modal-user')">&times;</button>
+      </div>
+      <form id="user-form" onsubmit="event.preventDefault(); submitUserForm();">
+        <div class="form-group">
+          <label for="usr-name">使用者姓名 *</label>
+          <input type="text" id="usr-name" placeholder="例如: 鍾民" required>
+        </div>
+        <div class="form-group">
+          <label for="usr-username">登入帳號 *</label>
+          <input type="text" id="usr-username" placeholder="例如: rd_user3" required>
+        </div>
+        <div class="form-group">
+          <label for="usr-password">登入密碼 *</label>
+          <input type="password" id="usr-password" value="123" required>
+        </div>
+        <div class="form-group">
+          <label for="usr-dept">隸屬部門 *</label>
+          <input type="text" id="usr-dept" placeholder="例如: 研發部" required>
+        </div>
+        <div class="form-group">
+          <label for="usr-role">系統權限角色 *</label>
+          <select id="usr-role" required>
+            <option value="RD">RD (研發資料與試戴報告權限)</option>
+            <option value="PM">PM (專案排程與內容管理權限)</option>
+            <option value="VP">VP (副總/高階主管審核權限)</option>
+            <option value="Admin">Admin (全權限/管理員)</option>
+          </select>
+        </div>
+        <div class="form-buttons">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modal-user')">取消</button>
+          <button type="submit" class="btn btn-primary">新增帳號</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 7: 模擬 Gate 審核對話框 (副總/主管) -->
+  <div id="modal-gate-approval" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Gate 階段審查簽核</h3>
+        <button class="modal-close" onclick="closeModal('modal-gate-approval')">&times;</button>
+      </div>
+      <form id="gate-approval-form" onsubmit="event.preventDefault(); submitGateApproval();">
+        <input type="hidden" id="appr-project-id">
+        <input type="hidden" id="appr-target-gate">
+        
+        <div class="approval-info card">
+          <p><strong>專案：</strong> <span id="appr-project-name">載入中...</span></p>
+          <p><strong>申請審批：</strong> 通過至 <span id="appr-gate-badge" class="badge">G4</span></p>
+          <p><strong>前置測試版本：</strong> <span id="appr-project-version">V18.2</span></p>
+        </div>
+        
+        <div class="form-group mt-15">
+          <label for="appr-decision">審核決定 *</label>
+          <select id="appr-decision" required class="form-control" onchange="toggleRejectionField(this.value)">
+            <option value="APPROVE">核准通過 (Go)</option>
+            <option value="REJECT">退回重新設計 (NG/Backtrack)</option>
+          </select>
+        </div>
+        
+        <div class="form-group id-reject-gate hidden" id="reject-gate-group">
+          <label for="appr-reject-to">退回至 Gate *</label>
+          <select id="appr-reject-to" class="form-control">
+            <option value="G1">G1 平光模仁與結構設計</option>
+            <option value="G2">G2 平光世代片測試</option>
+            <option value="G3">G3 全光度設計與模仁</option>
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label for="appr-comments">審批意見 / 核簽備註 *</label>
+          <textarea id="appr-comments" rows="3" placeholder="請填寫審查結論，例如樣片試戴表現、氣孔良率評語或退回修改點..." required></textarea>
+        </div>
+        
+        <div class="form-buttons">
+          <button type="button" class="btn btn-outline" onclick="closeModal('modal-gate-approval')">取消</button>
+          <button type="submit" class="btn btn-primary">送出核決</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="app.js?v=role-card-workbench-20260624"></script>
+</body>
+</html>
